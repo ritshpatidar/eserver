@@ -2,19 +2,16 @@ const {mongoose} = require("./connection");
 
 const Course = new mongoose.Schema({
     active:{
-        type:Boolean,
-        index:{
-            unique:true
-        }
+        type:Boolean
     },
     name:{
-        type:String,
-        index:{
-            unique:true
-        }
+        type:String
     },
     image:{
-        type:String,
+        type:String
+    },
+    course_file: {
+        type: String
     },
     students_enrolled:[],
     content: [

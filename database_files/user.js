@@ -2,7 +2,7 @@ const {mongoose} = require("./connection");
 
 const User = new mongoose.Schema({
     username:{
-        type:String
+        type:String,
     },
     email:{
         type:String

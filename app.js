@@ -1,12 +1,17 @@
-const express = require("express")
-const app = new express()
-const userModel= require("./database_files/user")
-const jwt = require("jsonwebtoken")
-const checkAuth = require("./auth")
-const port=process.env.PORT || 3000
+const express = require("express");
+const app = new express();
+const userModel= require("./database_files/user");
+const courseModel = require("./database_files/course");
+const jwt = require("jsonwebtoken");
+var cors = require('cors');
+const multer = require("multer");
+const checkAuth = require("./auth");
+const port=process.env.PORT || 3000;
 
 //app.use(express.json())
-app.use(express.urlencoded({extended:false}))
+app.use(cors());
+app.use(express.urlencoded({extended:false}));
+app.use(express.static(`${__dirname}/public`));
 
 app.get('/',(req,res)=>res.send("Welcome to our App!!!!!"))
 
@@ -27,22 +32,26 @@ app.post('/signup',(req,res)=>{
             if (err){
                 console.log("Error in findone ---");
                 console.log(err)
+                res.sendStatus(500);
             }else{
                 console.log("Result :", doc) // false
-                if(doc === null){
-                        const user = new userModel({
+                if(!doc){
+                        const user = {
                                 username:username,
                                 email:email,
                                 pswd:pswd,
                                 confirm_password: confirm_password,
                                 courses_enrolled:[]
-                        })
+                        }
 
                         console.log("userrrrr");
                         console.log(user);
-                    
-                        user.save()
-                        .then(doc=>{
+                        userModel.create(user,function(err,doc){
+                            if (err){
+                                console.log(err);
+                                res.sendStaus(403);
+                            } else{
+                                console.log(doc)
                                 const token=jwt.sign(
                                     {
                                         username:username,
@@ -53,20 +62,14 @@ app.post('/signup',(req,res)=>{
                                     }
                                 );
                                 res.json({
+                                    success:true,
                                     message:"User Registered Successfully",
                                     results:{user: doc, token: token}
                                 })
-                        })
-                        .catch(err=>{
-                                console.log(err);
-                                res.status(500).json({
-                                    message:"User may already exists",
-                                })
-                        })
+                            }
+                        });
                 } else {
-                    res.status(403).json({
-                        message:"User already exists",
-                    })
+                    res.json({success:false, message:"User already exists"});
                 }
             }
         });
@@ -99,17 +102,19 @@ app.post('/login', (req,res)=>{
                             },
                             'secret',
                             {
-                                expiresIn:"5h"
+                                expiresIn:"24h"
                             }
                         )
-                        res.status(201).json({
+                        res.json({
+                            success:true,
                             message:"User Found",
                             token:token
                         })
                         return
                      }
                      else{
-                        res.status(404).json({
+                        res.json({
+                            success:false,
                             message:"Wrong Password2",
                         })
                         return
@@ -125,8 +130,93 @@ app.post('/login', (req,res)=>{
 } )
 
 app.get("/isLoggedIn", checkAuth, (req, res) => {
-    res.json({success: true, user: req.userData});
+    res.json({success: true, message:"User found" ,user: req.userData});
+});
+
+//Multer
+const multerStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, "public");
+    },
+    filename: (req, file, cb) => {
+      const ext = file.mimetype.split("/")[1];
+      cb(null, `${file.originalname}`);
+    },
+});
+  
+//Multer Filter
+const multerFilter = (req,file,cb)=>{
+    if(file.mimetype.split('/')[1] === 'pdf'){
+        cb(null,true)
+    } else {
+        cb(new Error('Not a PDF File!!!'),false)
+    }
+};
+  
+//calling a multer function
+const upload = multer({
+    storage:multerStorage,
+    fileFilter:multerFilter
+});
+
+
+app.post("/api/admin/addCourse",checkAuth, upload.single("course_file"),(req,res)=>{
+    console.log(req.file.filename);
+    console.log(req.body);
+    const course = new courseModel({
+        active:req.body.active,
+        name: req.body.name,
+        image: req.body.image,
+        course_file: req.file.filename,
+        students_enrolled:[],
+        content:[]
+    });
+    
+
+    courseModel.findOne({name:req.body.name}, function (err, doc) {
+        if(err){
+            res.sendStatus(500);
+        } else {
+            if(doc){
+                res.status(403).json({
+                    message:"Course may already exist",
+                })
+                return
+            } else {
+                course.save()
+                .then((doc)=>{
+                    res.status(200).json({
+                        success:true,
+                        result: doc,
+                        message: "Course created successfully!!",
+                    });
+                })
+                .catch((err)=>{
+                    res.status(500).json({
+                        success:false,
+                        message: "Internal server error"
+                    });
+                });
+
+            }
+        }
+    });
 })
+  
+/*app.get("/api/getFiles", async(req,res)=>{
+    try{
+      const files = await File.find();
+      res.status(200).json({
+        status:"success",
+        files,
+      });
+    } catch(error){
+      res.json({
+        status:"Fail",
+        error,
+      });
+    }
+});*/
 
 app.listen(port,()=>{
     console.log(`Server is runninng at Port no ${port}`)
