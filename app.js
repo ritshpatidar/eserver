@@ -168,8 +168,8 @@ app.post("/api/admin/addCourse",checkAuth, upload.single("course_file"),(req,res
         name: req.body.name,
         image: req.body.image,
         course_file: req.file.filename,
-        students_enrolled:[],
-        content:[]
+        students_enrolled:JSON.parse(req.body.students_enrolled),
+        content:JSON.parse(req.body.content)
     });
     
 
@@ -178,10 +178,10 @@ app.post("/api/admin/addCourse",checkAuth, upload.single("course_file"),(req,res
             res.sendStatus(500);
         } else {
             if(doc){
-                res.status(403).json({
-                    message:"Course may already exist",
+                res.json({
+                    success:false,
+                    message:"Course already exist",
                 })
-                return
             } else {
                 course.save()
                 .then((doc)=>{
@@ -199,6 +199,69 @@ app.post("/api/admin/addCourse",checkAuth, upload.single("course_file"),(req,res
                 });
 
             }
+        }
+    });
+})
+
+app.get('/api/allCourses',checkAuth, (req,res)=>{
+    courseModel
+    .find()
+    .select('name image')
+    .exec()
+    .then(data=>{
+        res.json({
+            success:true,
+            message:"OK",
+            results:data
+        })
+    })
+    .catch(err=>{
+        console.log(err);
+        res.json({
+            success:false,
+            message:"Cannot find courses"
+        });
+    })
+})
+
+app.get('/api/getCourse/:id',checkAuth,async function(req,res){
+    const id= req.params.id;
+    try {
+        const course= await courseModel.findById(id);
+        if(course){
+            res.json({
+                results:course,
+                success:true,
+                message:"Course found"
+            });
+        } else {
+            res.json({
+                success:true,
+                message:"Course not found"
+            });
+        }
+    } catch (error) {
+        console.log(error);
+        res.json({
+            success:false,
+            message:"course not found"
+        });
+    }
+ })
+
+ // Delete a course Router
+app.delete("/api/admin/deleteCourse/:id",checkAuth,(req,res)=>{
+    courseModel.findOneAndRemove(req.params.id, function(err,docs){
+        if(err){
+            res.json({
+                success:false,
+                message:"Not able to delete"
+            });
+        } else {
+            res.json({
+                success:true,
+                message:"Course deleted"
+            });
         }
     });
 })
