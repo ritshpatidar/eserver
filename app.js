@@ -11,7 +11,8 @@ const port=process.env.PORT || 3000;
 //app.use(express.json())
 app.use(cors());
 app.use(express.urlencoded({extended:false}));
-app.use(express.static(`${__dirname}/public`));
+//app.use(express.static(`${__dirname}/public`));
+app.use(express.static('public'))
 
 app.get('/',(req,res)=>res.send("Welcome to our App!!!!!"))
 
@@ -146,7 +147,8 @@ const multerStorage = multer.diskStorage({
   
 //Multer Filter
 const multerFilter = (req,file,cb)=>{
-    if(file.mimetype.split('/')[1] === 'pdf'){
+    //if(file.mimetype.split('/')[1] === 'pdf'){
+    if(true){
         cb(null,true)
     } else {
         cb(new Error('Not a PDF File!!!'),false)
@@ -160,14 +162,14 @@ const upload = multer({
 });
 
 
-app.post("/api/admin/addCourse",checkAuth, upload.single("course_file"),(req,res)=>{
-    console.log(req.file.filename);
+app.post("/api/admin/addCourse",checkAuth,upload.single("image"), (req,res)=>{
     console.log(req.body);
     const course = new courseModel({
         active:req.body.active,
         name: req.body.name,
-        image: req.body.image,
-        course_file: req.file.filename,
+        image: req.file.filename,
+        category: req.body.category,
+        duration: req.body.duration,
         students_enrolled:JSON.parse(req.body.students_enrolled),
         content:JSON.parse(req.body.content)
     });
@@ -206,7 +208,7 @@ app.post("/api/admin/addCourse",checkAuth, upload.single("course_file"),(req,res
 app.get('/api/allCourses',checkAuth, (req,res)=>{
     courseModel
     .find()
-    .select('name image')
+    .select('name image students_enrolled content')
     .exec()
     .then(data=>{
         res.json({
@@ -224,34 +226,24 @@ app.get('/api/allCourses',checkAuth, (req,res)=>{
     })
 })
 
-app.get('/api/getCourse/:id',checkAuth,async function(req,res){
-    const id= req.params.id;
-    try {
-        const course= await courseModel.findById(id);
-        if(course){
-            res.json({
-                results:course,
-                success:true,
-                message:"Course found"
-            });
+app.get('/api/getCourse/:name',checkAuth,async function(req,res){
+    const name = req.params.name;
+    
+    courseModel.findOne({name:name}, function (err, doc) {
+        if(err){
+            res.json({success:false, message:"Something went wrong"});
         } else {
-            res.json({
-                success:true,
-                message:"Course not found"
-            });
+            if(doc)
+                res.json({success:true, message:"Course found", result:doc});
+            else
+                res.json({success:false, message:"Course not found"});
         }
-    } catch (error) {
-        console.log(error);
-        res.json({
-            success:false,
-            message:"course not found"
-        });
-    }
+    });
  })
 
  // Delete a course Router
 app.delete("/api/admin/deleteCourse/:id",checkAuth,(req,res)=>{
-    courseModel.findOneAndRemove(req.params.id, function(err,docs){
+    courseModel.findOneAndRemove({_id: req.params.id}, function(err,docs){
         if(err){
             res.json({
                 success:false,
@@ -264,6 +256,37 @@ app.delete("/api/admin/deleteCourse/:id",checkAuth,(req,res)=>{
             });
         }
     });
+})
+
+//add module
+app.put('/api/admin/addModule',upload.single('module_file'),function(req,res){
+    console.log(req.body);
+    const name=req.body.name;
+    const module_name = req.body.module_name;
+    const video_link = req.body.video_link;
+    const module_file = req.file.filename;
+    courseModel.updateOne(
+        {name:name},
+        { $push: {content : [{module_name:module_name,
+                    video_link:video_link,
+                    module_file:module_file
+                    }]
+                }
+        },
+        function(err,result){
+            if(err){
+                res.json({
+                    success:false,
+                    message:"error"
+                });
+            }
+            else{
+                res.json({
+                    result:result,
+                    success:true
+                })
+            }
+    })
 })
   
 /*app.get("/api/getFiles", async(req,res)=>{
