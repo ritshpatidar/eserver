@@ -10,14 +10,16 @@ const Course = new mongoose.Schema({
     image:{
         type:String
     },
-    course_file: {
-        type: String
+    duration: {
+        type: Number
     },
     students_enrolled:[],
+    category: {type: String},
     content: [
         {
-            topic_name:{type: String},
-            video_link:{type: String}
+            module_name:{type: String},
+            video_link:{type: String},
+            module_file: {type: String },
         }
     ]
 });
