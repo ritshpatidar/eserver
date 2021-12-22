@@ -59,7 +59,7 @@ app.post('/signup',(req,res)=>{
                                     },
                                     'secret',
                                     {
-                                        expiresIn:"5h"
+                                        expiresIn:"24h"
                                     }
                                 );
                                 res.json({
@@ -109,7 +109,8 @@ app.post('/login', (req,res)=>{
                         res.json({
                             success:true,
                             message:"User Found",
-                            token:token
+                            token:token,
+                            username:user[0].username
                         })
                         return
                      }
@@ -241,6 +242,21 @@ app.get('/api/getCourse/:name',checkAuth,async function(req,res){
     });
  })
 
+ app.get('/api/getUser/:name',checkAuth,async function(req,res){
+    const name = req.params.name;
+    
+    userModel.findOne({username:name}, function (err, doc) {
+        if(err){
+            res.json({success:false, message:"Something went wrong"});
+        } else {
+            if(doc)
+                res.json({success:true, message:"User found", result:doc});
+            else
+                res.json({success:false, message:"user not found"});
+        }
+    });
+ })
+
  // Delete a course Router
 app.delete("/api/admin/deleteCourse/:id",checkAuth,(req,res)=>{
     courseModel.findOneAndRemove({_id: req.params.id}, function(err,docs){
@@ -287,6 +303,35 @@ app.put('/api/admin/addModule',upload.single('module_file'),function(req,res){
                 })
             }
     })
+})
+
+app.put('/api/student/enroll',function(req,res){
+    const username= req.body.username
+    const name=req.body.name
+    courseModel.updateOne(
+        {name:name},
+        {$addToSet: {students_enrolled: [username]}},
+        function(err,result){
+            if(err){
+                res.send(err)
+                }
+            else{
+                userModel.updateOne(
+                {username:username},
+                {$addToSet: {courses_enrolled: [name]}},
+                function(err,result){
+                    if(err){
+                        res.json({
+                            success:false,
+                            message:"Something went wrong"
+                        });
+                    } else{
+                        res.json({success:true, message:"Enrolled Successfully",result: result});
+                    }
+                })
+            }
+        }
+    );
 })
   
 /*app.get("/api/getFiles", async(req,res)=>{
